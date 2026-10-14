@@ -1,4 +1,4 @@
-# LIT11_Meetup_Container-Security
+# LIT11_Meetup_Container_Security
 
 ### 제목: 배포 전 잠깐! 이거 올려도 괜찮을까?
 
@@ -181,3 +181,7 @@ Fail 로그 확인 및 해당 로그가 의미하는 것이 뭔지 (배포를 �
 ### CTA
 
 > 오늘 집에 가서 본인이 만든 프로젝트 이미지를 Trivy로 딱 한 번만 스캔해보세요. 명령어 한 줄이면 됩니다. 배포 버튼 누르기 전에 내 이미지에 구멍이 있는지 확인하는 습관, 오늘부터 시작해보세요.
+
+'''
+Notion URL: https://app.notion.com/p/LIT11_Meetup_Container_Security-3f9d81189abf8071b3dffc2b1b489e9b?source=copy_link
+'''
