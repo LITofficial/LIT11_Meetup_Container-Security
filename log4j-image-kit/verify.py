@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print("Target CVE findings:", len(old[1]), "->", len(new[1]))
         print("All Critical findings:", len(old[2]), "->", len(new[2]))
         ok = bool(old[0] and new[0] and old[1]) and not new[1] and bool(old[2]) and not new[2]
-        print("DEMO READY" if ok else "NOT VERIFIED: inspect reports; do not claim PASS/FAIL demonstration yet")
+        print("SUCCESS" if ok else "NOT VERIFIED: inspect reports; do not claim PASS/FAIL demonstration yet")
         sys.exit(0 if ok else 1)
     except Exception as exc:
         print("ERROR:", exc)
