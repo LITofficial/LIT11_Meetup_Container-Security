@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trivy 이미지 검사</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#172238;font-family:system-ui,'Apple SD Gothic Neo','Nanum Gothic',sans-serif;line-height:1.65}main{max-width:720px;margin:65px auto;padding:0 20px}section{background:#fff;border:1px solid #dce2eb;border-radius:20px;padding:32px}h1{margin:0 0 10px;font-size:30px;letter-spacing:-1px}p{color:#526078}.upload{display:block;margin:26px 0 18px;padding:24px;border:2px dashed #adbcd2;border-radius:12px;background:#f8faff}input{display:block;max-width:100%;margin-top:12px;font:inherit}button{border:0;border-radius:10px;padding:14px 24px;background:#2459cf;color:white;font:700 16px system-ui;cursor:pointer}button:disabled{opacity:.6;cursor:wait}button:focus-visible,input:focus-visible{outline:3px solid #eb9a16;outline-offset:4px}.small{font-size:13px}.status{margin-top:22px;padding:20px;border-radius:12px;background:#eef3fb}.status h2{margin:0;font-size:24px}.status p{margin-bottom:0}.fail{background:#fff0f1;color:#a01b35}.pass{background:#eaf8f0;color:#11613e}.error{background:#fff5dc;color:#725000}.status p{color:inherit}.list{margin-top:18px;padding-left:22px}.list li{margin:12px 0;overflow-wrap:anywhere}.list small{display:block;color:#526078}.notice{border-top:1px solid #e1e6ef;margin-top:28px;padding-top:18px;font-size:13px;color:#526078}[hidden]{display:none!important}@media(max-width:500px){main{margin:25px auto}section{padding:23px}}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.stat{flex:1;min-width:130px;background:#f1f4fa;border-radius:12px;padding:16px}.stat b{display:block;font-size:28px}.stat span{font-size:13px;color:#526078}.package{border:1px solid #dce2eb;border-radius:14px;padding:20px;margin-top:16px}.package h3{margin:0 0 8px}.package .version{font-size:14px;color:#526078}.action{background:#eef3fb;padding:14px;border-radius:8px;margin-top:14px}details{margin-top:16px}summary{cursor:pointer;font-weight:700}.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:490px;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e1e6ef}th{color:#526078}.badge{display:inline-block;padding:2px 8px;border-radius:5px;background:#fff0f1;color:#a01b35;font-size:12px}.list{padding:0}.context{font-size:13px;color:#526078}
+.metric{display:block;width:100%;text-align:left;background:transparent;color:#172238;padding:0}.metric::after{content:"목록 열기 ▾";display:block;font-size:12px;color:#2459cf;margin-top:10px}.metric[aria-expanded="true"]::after{content:"목록 닫기 ▴"}.metric-list{font-size:13px;max-height:280px;overflow:auto;overflow-wrap:anywhere;border-top:1px solid #cdd7e5;margin-top:12px}.metric-list p{border-bottom:1px solid #dce2eb;padding-bottom:8px}
+.metric-list{border:1px solid #dce2eb;background:#f8faff;border-radius:14px;padding:16px;margin-top:14px;max-height:480px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.entry{background:#fff;border:1px solid #dce2eb;border-radius:10px;padding:16px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:7px}.entry strong{font-size:15px;line-height:1.5;overflow-wrap:anywhere}.entry-meta{display:block;font-size:13px;color:#526078;line-height:1.6;overflow-wrap:anywhere}.severity{font-size:11px;font-weight:750;border-radius:5px;padding:3px 8px;background:#edf1f8;color:#42516a}.sev-CRITICAL{background:#ffe4e8;color:#9f1432}.sev-HIGH{background:#fff0de;color:#854000}.sev-MEDIUM{background:#fff7ce;color:#715500}.sev-LOW{background:#e9f3ff;color:#215789}.metric[aria-expanded="true"]{color:#174cb8}.stats .stat{min-width:150px}.metric-list[hidden]{display:none!important}
+</style>
+</head>
+<body><main><section>
+<h1>Trivy 취약점 검사기</h1>
+<p>컨테이너 이미지 파일을 올리면 Trivy가 취약점을 검사합니다.</p>
+<form id="scan-form">
+<label class="upload" for="image"><strong>검사할 파일 선택</strong><input type="file" id="image" name="image" accept=".tar" required></label>
+<p class="small">컨테이너 이미지 <strong>.tar</strong> 파일만 가능합니다. 최대 80MB.</p>
+<button id="scan-button" type="submit">검사하기</button>
+</form>
+<div id="status" class="status" role="status" aria-live="polite" hidden><h2 id="heading"></h2><p id="message"></p></div>
+<div id="summary" hidden></div><div id="issues" class="list"></div>
+<p id="more" class="small"></p>
+<div class="notice">판정 기준: CRITICAL 취약점이 하나라도 발견되면 배포 불가로 표시합니다. 통과해도 완벽한 안전을 보장하지 않습니다. 실제 배포를 실행하거나 차단하는 기능은 아닙니다.</div>
+<p id="server-notice" class="small" hidden>이 HTML을 파일로 직접 열면 실제 검사를 할 수 없습니다. 함께 제공된 서버를 실행한 뒤 브라우저에서 localhost:8080으로 접속하세요.</p>
+</section></main>
+<script>
+'use strict';
+const get=id=>document.getElementById(id);
+function status(title,message,type=''){get('status').hidden=false;get('status').className='status '+type;get('heading').textContent=title;get('message').textContent=message;}
+if(location.protocol==='file:'){get('server-notice').hidden=false;get('scan-button').disabled=true;}
+get('scan-form').addEventListener('submit',async event=>{
+ event.preventDefault();const file=get('image').files[0];if(!file)return;
+ get('issues').replaceChildren();get('summary').replaceChildren();get('summary').hidden=true;get('more').textContent='';
+ if(!file.name.toLowerCase().endsWith('.tar')){status('파일을 확인해주세요','.tar 컨테이너 이미지 파일을 선택하세요.','error');return;}
+ if(file.size>80*1024*1024){status('파일이 너무 큽니다','80MB 이하의 파일을 선택하세요.','error');return;}
+ get('scan-button').disabled=true;status('검사 중입니다…','실제 Trivy 검사 결과를 기다리고 있습니다. 처음에는 준비에 수 분이 걸릴 수 있습니다.');
+ try{
+  const form=new FormData();form.append('image',file);
+  const response=await fetch('/api/scan',{method:'POST',body:form});
+  let result;try{result=await response.json();}catch{throw new Error('검사 서버에 연결할 수 없거나 응답이 올바르지 않습니다. 서버 실행 상태를 확인해주세요.');}
+  if(!response.ok)throw new Error(result.error||'검사를 완료하지 못했습니다.');
+  if(result.verdict==='FAIL')status('배포 불가','CRITICAL 취약점이 발견됐습니다. 문제 패키지를 수정한 뒤 다시 검사하세요.','fail');
+  else if(result.verdict==='PASS')status('배포 기준 통과','CRITICAL 취약점이 검출되지 않았습니다. 다른 위험은 남아 있을 수 있습니다.','pass');
+  else status('판정할 수 없습니다','분석 가능한 패키지를 확인하지 못했습니다. 안전한 이미지로 간주하지 마세요.','error');
+  const counts=result.counts, blocked=counts.CRITICAL;
+  const groups=new Map();
+  for(const issue of result.vulnerabilities){
+   const key=issue.PkgName+'@'+issue.InstalledVersion;
+   if(!groups.has(key))groups.set(key,[]);
+   groups.get(key).push(issue);
+  }
+  const overview=get('summary');overview.hidden=false;
+  const stats=document.createElement('div');stats.className='stats';
+  for(const [label,value] of [['문제 패키지',groups.size],['배포 차단 항목',blocked],['추가 관리 항목',counts.HIGH+counts.MEDIUM+counts.LOW+counts.UNKNOWN]]){
+   const tile=document.createElement('div'),num=document.createElement('b'),caption=document.createElement('span');tile.className='stat';num.textContent=value;caption.textContent=label;tile.append(num,caption);
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='metric';toggle.setAttribute('aria-expanded','false');toggle.append(...tile.childNodes);
+   const panel=document.createElement('div');panel.hidden=true;panel.className='metric-list';
+   const id='metric-'+stats.children.length;panel.id=id;toggle.setAttribute('aria-controls',id);
+   if(label==='문제 패키지'){
+    for(const list of groups.values()){const row=document.createElement('div');row.className='entry';const name=document.createElement('strong');name.textContent=list[0].PkgName||'패키지 정보 없음';const info=document.createElement('span');info.className='entry-meta';info.textContent='현재 버전 '+(list[0].InstalledVersion||'정보 없음')+' · 취약점 '+list.length+'건';row.append(name,info);panel.append(row);}
+   }else{
+    const matches=result.vulnerabilities.filter(v=>label==='배포 차단 항목'?v.Severity==='CRITICAL':v.Severity!=='CRITICAL');
+    for(const v of matches){const row=document.createElement('div');row.className='entry';const badge=document.createElement('span');badge.className='severity sev-'+v.Severity;const names={CRITICAL:'치명적',HIGH:'높음',MEDIUM:'중간',LOW:'낮음',UNKNOWN:'미분류'};badge.textContent=(names[v.Severity]||'미분류')+' · '+v.Severity;const name=document.createElement('strong');name.textContent=v.PkgName||'패키지 정보 없음';const id=document.createElement('span');id.className='entry-meta';id.textContent=v.VulnerabilityID||'취약점 번호 없음';const versions=document.createElement('span');versions.className='entry-meta';versions.textContent='현재 '+(v.InstalledVersion||'정보 없음')+' → 수정 '+(v.FixedVersion||'정보 없음');row.append(badge,name,id,versions);panel.append(row);}
+   }
+   if(!panel.children.length)panel.textContent='해당 항목이 없습니다.';
+   toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));});
+   tile.append(toggle);stats.append(tile);overview.append(panel);
+   toggle.addEventListener('click',()=>{if(!panel.hidden){for(const other of overview.querySelectorAll('.metric-list'))if(other!==panel)other.hidden=true;for(const btn of stats.querySelectorAll('.metric'))if(btn!==toggle)btn.setAttribute('aria-expanded','false');}});
+  }
+  overview.prepend(stats);
+  const explanation=document.createElement('p');explanation.className='context';explanation.textContent='배포 차단 항목 = CRITICAL(치명적). HIGH 이하 및 미분류는 추가 관리 항목입니다. 각 요약 카드를 누르면 목록이 열립니다. 같은 패키지에서 여러 취약점이 발견될 수 있습니다. 추가 관리 항목에는 위험도 미분류(UNKNOWN)도 포함됩니다.';overview.append(explanation);
+  const rank={CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3,UNKNOWN:4};
+  const ordered=[...groups.values()].sort((a,b)=>Math.min(...a.map(v=>rank[v.Severity]??4))-Math.min(...b.map(v=>rank[v.Severity]??4)));
+  for(const issues of ordered){
+   issues.sort((a,b)=>(rank[a.Severity]??4)-(rank[b.Severity]??4));
+   const first=issues[0],card=document.createElement('article');card.className='package';
+   const title=document.createElement('h3');const full=first.PkgName||'패키지 이름 미확인';title.textContent=full.split(':').pop();
+   const version=document.createElement('div');version.className='version';version.textContent='현재 버전: '+(first.InstalledVersion||'정보 없음');
+   const fullName=document.createElement('div');fullName.className='context';fullName.textContent=full;
+   const blocking=issues.filter(v=>v.Severity==='CRITICAL').length;
+   const verdict=document.createElement('p');verdict.textContent=`취약점 ${issues.length}건 · 배포 차단 ${blocking}건 · 추가 관리 ${issues.length-blocking}건`;
+   const action=document.createElement('div');action.className='action';action.textContent=blocking?'해야 할 일: 이 패키지의 업데이트를 검토하고, 이미지를 다시 빌드한 뒤 재검사하세요.':'해야 할 일: 남은 취약점을 검토하고 업데이트 계획을 관리하세요. 배포 기준 통과가 완전한 안전을 뜻하지는 않습니다.';
+   const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='기술 상세 보기 · 취약점 번호와 수정 버전';details.append(summary);
+   const wrapper=document.createElement('div');wrapper.className='tablewrap';const table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');
+   for(const label of ['위험도','취약점 번호','해당 취약점의 수정 버전']){const th=document.createElement('th');th.textContent=label;tr.append(th);}head.append(tr);table.append(head);
+   const body=document.createElement('tbody');
+   const labels={CRITICAL:'치명적',HIGH:'높음',MEDIUM:'중간',LOW:'낮음',UNKNOWN:'미분류'};
+   for(const issue of issues){const row=document.createElement('tr');for(const val of [(labels[issue.Severity]||'미분류')+' ('+issue.Severity+')',issue.VulnerabilityID,issue.FixedVersion||'수정 버전 정보 없음']){const td=document.createElement('td');td.textContent=val;row.append(td);}body.append(row);}
+   table.append(body);wrapper.append(table);details.append(wrapper);
+   const caution=document.createElement('p');caution.className='context';caution.textContent='수정 버전 정보는 취약점별 안내입니다. 한 행의 버전이 다른 모든 취약점도 해결한다는 뜻은 아닙니다. 호환성과 전체 검사 결과를 확인하세요.';details.append(caution);
+   card.append(title,version,fullName,verdict,action,details);get('issues').append(card);
+  }
+  if(!groups.size)get('more').textContent='검출된 취약점 항목이 없습니다. 분석 범위 밖의 위험까지 없다는 뜻은 아닙니다.';
+
+ }catch(error){status('검사를 완료하지 못했습니다',error.message+' 이 상태는 통과가 아닙니다.','error');}
+ finally{get('scan-button').disabled=false;}
+});
+</script>
+</body></html>
