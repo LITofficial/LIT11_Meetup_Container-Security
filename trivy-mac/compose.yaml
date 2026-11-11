@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - trivy-cache:/home/scanner/.cache/trivy
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 128
+    restart: "no"
+volumes:
+  trivy-cache:
